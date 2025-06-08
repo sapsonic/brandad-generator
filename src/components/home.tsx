@@ -91,15 +91,26 @@ const Home = () => {
       setGenerationError(null);
       setCurrentStep(Step.GENERATION);
       setProgressValue(0);
-      setProgressMessage("Uploading your image");
+      setProgressMessage("Enhancing your prompt");
 
       // Start progress animation
       startProgressAnimation();
 
       // Import the OpenAI service functions
-      const { generateImages, fileToDataUrl } = await import(
+      const { generateImages, fileToDataUrl, enhancePrompt } = await import(
         "../services/openaiService"
       );
+
+      // Step 1: Enhance the user prompt using GPT-4.1 nano
+      console.log("Enhancing user prompt with GPT-4.1 nano...");
+      setProgressMessage("Enhancing your description with AI");
+      const enhancedDescription = await enhancePrompt({
+        userPrompt: description,
+      });
+      console.log("Enhanced description:", enhancedDescription);
+
+      // Update progress
+      setProgressMessage("Uploading your image");
 
       // Convert the uploaded image to a data URL
       const imageDataUrl = await fileToDataUrl(image);
@@ -107,7 +118,7 @@ const Home = () => {
       // Fetch prompts from external source
       let basePrompt =
         'Create a professional ecommerce ad for this product. The product description is: "' +
-        description +
+        enhancedDescription +
         '". CRITICAL INSTRUCTION: The product must be the central focus of the ad and must maintain its exact appearance, colors, and design. Do not change any text on the product image uploaded.';
       let adTypes = [
         {
@@ -138,7 +149,7 @@ const Home = () => {
             if (externalConfig.basePrompt) {
               basePrompt = externalConfig.basePrompt.replace(
                 "{DESCRIPTION}",
-                description,
+                enhancedDescription,
               );
             }
             if (
@@ -269,7 +280,7 @@ const Home = () => {
       // If we have the original image and product description, use the OpenAI API
       if (productImage && productDescription) {
         try {
-          const { generateImages, fileToDataUrl } = await import(
+          const { generateImages, fileToDataUrl, enhancePrompt } = await import(
             "../services/openaiService"
           );
 
@@ -279,20 +290,99 @@ const Home = () => {
           // Determine which ad type to regenerate
           const adType = adToRegenerate.adType || "Creative Concept Ad";
 
+          // Get the current ad type configurations
+          let currentAdTypes = [
+            {
+              type: "Creative Concept Ad",
+              prompt:
+                "\n\n1. Creative Concept Ad:\n- Generate a bold, imaginative visual concept using the product image.\n- The background and design should align with the product's theme and aesthetic.\n- Add a short, catchy headline or tagline that evokes curiosity or emotion.\n- Use a unique font style that fits the vibe of the concept.\n\nGeneral Rules:\n\n- Ensure the product is centered or attractively placed in the visual.\n- The image should be 1080x1080px.\n- Keep text concise and legible.\n- Use a font style that is unique to this ad.",
+            },
+            {
+              type: "Benefit Highlight Ad",
+              prompt:
+                "\n\n1. Benefit Highlight Ad:\n- Focus on showcasing 2–3 key benefits or features of the product.\n- Integrate supporting graphics or icons (if relevant) in the design.\n- Make the product the visual hero.\n- Use a clean and legible font style different from other ads.\n\nGeneral Rules:\n\n- Ensure the product is centered or attractively placed in the visual.\n- The image should be 1080x1080px.\n- Keep text concise and legible.\n- Use a font style that is unique to this ad.",
+            },
+            {
+              type: "Ecommerce-Style Ad",
+              prompt:
+                '\n\n1. Ecommerce-Style Ad:\n- Make it suitable for a Shopify or Amazon-style ecommerce setting.\n- Use color palettes that complement the product (auto-match to image).\n- Add CTA like "Buy Now" or "Limited Offer".\n- Do not add pricing, unless explicitly mentioned in the USER_DESCRIPTION.\n- Use a modern, commerce-friendly font style.\n\nGeneral Rules:\n\n- Ensure the product is centered or attractively placed in the visual.\n- The image should be 1080x1080px.\n- Keep text concise and legible.\n- Use a font style that is unique to this ad.',
+            },
+          ];
+
+          // Try to fetch external prompt configuration
+          try {
+            const promptUrl = import.meta.env.VITE_PROMPT_CONFIG_URL;
+            if (promptUrl) {
+              const response = await fetch(promptUrl);
+              if (response.ok) {
+                const externalConfig = await response.json();
+                if (
+                  externalConfig.adTypes &&
+                  Array.isArray(externalConfig.adTypes)
+                ) {
+                  currentAdTypes = externalConfig.adTypes;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(
+              "Error fetching external prompts for regeneration, using defaults:",
+              error,
+            );
+          }
+
           // Find the matching ad type in the configuration
-          const adTypeConfig = adTypes.find((at) => at.type === adType) || {
+          const adTypeConfig = currentAdTypes.find(
+            (at) => at.type === adType,
+          ) || {
             type: adType,
             prompt: "",
           };
 
-          // Add a variation seed to make this generation unique
-          const adTypeWithSeed = {
+          // Add the creativity instruction to make this generation unique
+          const adTypeWithCreativity = {
             ...adTypeConfig,
-            prompt: `${adTypeConfig.prompt}\n\n- Make this variation unique and different from previous versions. Variation seed: ${Math.random().toString(36).substring(7)}`,
+            prompt: `${adTypeConfig.prompt}\n\n- Make it slightly more creative.`,
           };
 
+          // Enhance the product description first
+          const enhancedProductDescription = await enhancePrompt({
+            userPrompt: productDescription,
+          });
+
+          // Get the current base prompt
+          let currentBasePrompt =
+            'Create a professional ecommerce ad for this product. The product description is: "' +
+            enhancedProductDescription +
+            '". CRITICAL INSTRUCTION: The product must be the central focus of the ad and must maintain its exact appearance, colors, and design. Do not change any text on the product image uploaded.';
+
+          // Try to fetch external base prompt configuration
+          try {
+            const promptUrl = import.meta.env.VITE_PROMPT_CONFIG_URL;
+            if (promptUrl) {
+              const response = await fetch(promptUrl);
+              if (response.ok) {
+                const externalConfig = await response.json();
+                if (externalConfig.basePrompt) {
+                  currentBasePrompt = externalConfig.basePrompt.replace(
+                    "{DESCRIPTION}",
+                    enhancedProductDescription,
+                  );
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(
+              "Error fetching external base prompt for regeneration, using default:",
+              error,
+            );
+          }
+
           // Create the full prompt by combining base prompt with ad type prompt
-          const specificPrompt = basePrompt + adTypeWithSeed.prompt;
+          const specificPrompt =
+            currentBasePrompt + adTypeWithCreativity.prompt;
+
+          console.log(`Regenerating ${adType} with enhanced creativity...`);
 
           // Call the OpenAI API to generate a new image
           const generatedImageUrls = await generateImages({

@@ -1,9 +1,15 @@
+import OpenAI from "openai";
+
 interface GenerateImageParams {
   prompt: string;
   originalImageUrl: string;
   n?: number;
   size?: string;
   quality?: string;
+}
+
+interface EnhancePromptParams {
+  userPrompt: string;
 }
 
 interface OpenAIImageResponse {
@@ -13,6 +19,61 @@ interface OpenAIImageResponse {
     revised_prompt?: string;
   }[];
 }
+
+/**
+ * Enhances a user prompt using GPT-4.1 nano
+ * @param params Parameters for prompt enhancement
+ * @returns Promise with the enhanced prompt
+ */
+export const enhancePrompt = async ({
+  userPrompt,
+}: EnhancePromptParams): Promise<string> => {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+  if (!apiKey) {
+    console.error(
+      "API Key validation failed: No API key provided in environment",
+    );
+    throw new Error("OpenAI API key is not configured");
+  }
+
+  try {
+    console.log("=== PROMPT ENHANCEMENT STARTED ===");
+    console.log("Original user prompt:", userPrompt);
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Using gpt-4o-mini as GPT-4.1 nano equivalent
+      messages: [
+        {
+          role: "user",
+          content: `Explain this prompt in more detail, to help an image model create a high quality image. This prompt will be fed into the image model for creation. Only return your detailed prompt and nothing else.\n\n${userPrompt}`,
+        },
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const enhancedPrompt =
+      response.choices[0]?.message?.content?.trim() || userPrompt;
+
+    console.log("Enhanced prompt:", enhancedPrompt);
+    console.log("=== PROMPT ENHANCEMENT COMPLETED ===");
+
+    return enhancedPrompt;
+  } catch (error) {
+    console.error("=== PROMPT ENHANCEMENT FAILED ===");
+    console.error("Error details:", error);
+
+    // Fallback to original prompt if enhancement fails
+    console.log("Falling back to original prompt");
+    return userPrompt;
+  }
+};
 
 /**
  * Generates images using OpenAI's gpt-image-1 model

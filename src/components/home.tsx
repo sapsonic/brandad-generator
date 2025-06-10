@@ -140,7 +140,8 @@ const Home = () => {
 
       // Try to fetch external prompt configuration
       try {
-        const promptUrl = import.meta.env.VITE_PROMPT_CONFIG_URL;
+        const promptUrl =
+          "https://gist.githubusercontent.com/sapsonic/b23aaf0bfd2d0c409364996e63ac8da4/raw/de27b05fbcec2bfe71f4179c50f43a6e16b5eb22/ad_prompt";
         if (promptUrl) {
           console.log("Fetching prompts from:", promptUrl);
           const response = await fetch(promptUrl);
@@ -311,7 +312,12 @@ const Home = () => {
 
           // Try to fetch external prompt configuration
           try {
+<<<<<<< HEAD
             const promptUrl = import.meta.env.VITE_PROMPT_CONFIG_URL;
+=======
+            const promptUrl =
+              "https://gist.githubusercontent.com/sapsonic/b23aaf0bfd2d0c409364996e63ac8da4/raw/de27b05fbcec2bfe71f4179c50f43a6e16b5eb22/ad_prompt";
+>>>>>>> Update components and OpenAI service
             if (promptUrl) {
               const response = await fetch(promptUrl);
               if (response.ok) {
@@ -358,7 +364,12 @@ const Home = () => {
 
           // Try to fetch external base prompt configuration
           try {
+<<<<<<< HEAD
             const promptUrl = import.meta.env.VITE_PROMPT_CONFIG_URL;
+=======
+            const promptUrl =
+              "https://gist.githubusercontent.com/sapsonic/b23aaf0bfd2d0c409364996e63ac8da4/raw/de27b05fbcec2bfe71f4179c50f43a6e16b5eb22/ad_prompt";
+>>>>>>> Update components and OpenAI service
             if (promptUrl) {
               const response = await fetch(promptUrl);
               if (response.ok) {
